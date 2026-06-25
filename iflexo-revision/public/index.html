@@ -42438,15 +42438,7 @@ function applyVerifiedUI(cid, verified) {
     if (navEl)  navEl.classList.remove('verified-item');
   }
 }
-  var verEl2 = document.getElementById('verified-' + cid);
-  if (verEl2) verEl2.innerHTML = '<span style="color:#059669;font-size:11px;font-weight:700">Revisado por ' + currentUser + '</span>';
-  var btn2 = document.querySelector('#panel-' + cid + ' .btn-verify');
-  if (btn2) { btn2.textContent = 'Revisado'; btn2.classList.add('done'); }
-  var navEl2 = document.getElementById('nav-' + cid);
-  if (navEl2) navEl2.classList.add('verified-item');
-  scheduleSave();
-  showToast('Cliente marcado como revisado');
-};
+
 
 window.bulkSet = function(cid, status) {
   const panel = document.getElementById('panel-' + cid);
