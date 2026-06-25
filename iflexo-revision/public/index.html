@@ -42213,12 +42213,13 @@ async function saveToFirebase() {
   setSyncStatus('syncing');
   try {
     await setDoc(doc(db, 'sessions', currentUser), {
-      reviewState:   reviewState,
-      verifiedState: verifiedState,
-      deletedItems:  Array.from(deletedItems),
-      customItems:   customItems,
-      updatedAt:     serverTimestamp(),
-      user:          currentUser
+      reviewState:    reviewState,
+      verifiedState:  verifiedState,
+      deletedItems:   Array.from(deletedItems),
+      deletedClients: Array.from(deletedClients),
+      customItems:    customItems,
+      updatedAt:      serverTimestamp(),
+      user:           currentUser
     }, {merge: true});
     setSyncStatus('ok');
   } catch(e) {
@@ -42242,8 +42243,9 @@ async function loadFromFirebase(user) {
       const d = snap.data();
       reviewState   = d.reviewState   || {};
       verifiedState = d.verifiedState || {};
-      deletedItems  = new Set(d.deletedItems || []);
-      customItems   = d.customItems   || {};
+      deletedItems    = new Set(d.deletedItems || []);
+      deletedClients  = new Set(d.deletedClients || []);
+      customItems     = d.customItems   || {};
     }
 
     // También escuchar sesiones de otros para mostrar progreso global
@@ -42290,6 +42292,14 @@ window.changeUser = function() {
 
 // ── APLICAR ESTADO AL UI ────────────────────────────────────────
 function applyStateToUI() {
+  // Clientes borrados
+  deletedClients.forEach(function(cid) {
+    var navEl = document.getElementById('nav-' + cid);
+    var panel = document.getElementById('panel-' + cid);
+    if (navEl) navEl.remove();
+    if (panel) panel.remove();
+  });
+
   // Ítems borrados
   deletedItems.forEach(id => {
     const el = document.getElementById(id);
@@ -42387,12 +42397,16 @@ window.deleteCard = function(iid) {
 };
 
 window.deleteClientPanel = function(cid) {
-  const navItem = document.getElementById('nav-' + cid);
-  const panel   = document.getElementById('panel-' + cid);
-  const name    = navItem?.querySelector('.nav-name')?.textContent || cid;
-  if (!confirm('¿Ocultar "' + name + '" de tu vista?')) return;
-  if (panel)   { panel.style.opacity='0'; setTimeout(()=>panel.remove(),220); }
-  if (navItem) { navItem.style.opacity='0'; setTimeout(()=>navItem.remove(),220); }
+  var navItem = document.getElementById('nav-' + cid);
+  var panel   = document.getElementById('panel-' + cid);
+  var name    = navItem && navItem.querySelector('.nav-name') ? navItem.querySelector('.nav-name').textContent : cid;
+  if (!confirm('Ocultar "' + name + '" de tu vista?')) return;
+  // Guardar en lista de clientes ocultos
+  if (!deletedClients) deletedClients = new Set();
+  deletedClients.add(cid);
+  scheduleSave();
+  if (panel)   { panel.style.opacity='0'; setTimeout(function(){panel.remove();},220); }
+  if (navItem) { navItem.style.opacity='0'; setTimeout(function(){navItem.remove();},220); }
   if (currentClient === cid) {
     currentClient = null;
     document.getElementById('welcome').classList.remove('hidden');
@@ -42416,8 +42430,15 @@ window.unmarkClientVerified = async function(cid) {
   var name = navItem && navItem.querySelector('.nav-name') ? navItem.querySelector('.nav-name').textContent : cid;
   if (!confirm('Desmarcar "' + name + '"?')) return;
   delete verifiedState[cid];
+  // Guardar en Firebase primero con el estado actualizado
+  try {
+    var db2 = getFirestore(getApp());
+    await setDoc(doc(db2, 'sessions', currentUser), {
+      verifiedState: verifiedState,
+      updatedAt: serverTimestamp()
+    }, {merge: true});
+  } catch(e) { console.error('unmark save:', e); }
   applyVerifiedUI(cid, false);
-  await saveToFirebase();
   showToast('Desmarcado');
 };
 
