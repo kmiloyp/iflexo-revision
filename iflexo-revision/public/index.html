@@ -42248,11 +42248,16 @@ async function loadFromFirebase(user) {
 
     // También escuchar sesiones de otros para mostrar progreso global
     onSnapshot(collection(db, 'sessions'), snap => {
-      const allVerified = {};
-      snap.docs.forEach(d => {
-        const data = d.data();
-        Object.assign(allVerified, data.verifiedState || {});
+      var allVerified = {};
+      snap.docs.forEach(function(d) {
+        var data = d.data();
+        // Solo mezclar estados de OTROS usuarios, no el propio
+        if (d.id !== currentUser) {
+          Object.assign(allVerified, data.verifiedState || {});
+        }
       });
+      // Mezclar con el estado local del usuario actual
+      Object.assign(allVerified, verifiedState);
       verifiedState = allVerified;
       refreshVerifiedUI();
     });
