@@ -42406,23 +42406,28 @@ window.markClientVerified = async function(cid) {
   var navItem = document.getElementById('nav-' + cid);
   var name = navItem ? (navItem.querySelector('.nav-name') ? navItem.querySelector('.nav-name').textContent : cid) : cid;
   if (verifiedState[cid]) {
-    if (!confirm('¿Desmarcar "' + name + '" como revisado?')) return;
+    if (!confirm('Desmarcar "' + name + '" como revisado?')) return;
     delete verifiedState[cid];
     var verEl = document.getElementById('verified-' + cid);
     if (verEl) verEl.innerHTML = '';
     var btn = document.querySelector('#panel-' + cid + ' .btn-verify');
-    if (btn) { btn.textContent = '\u2705 Marcar revisado'; btn.classList.remove('done'); }
+    if (btn) { btn.textContent = 'Marcar revisado'; btn.classList.remove('done'); }
     var navEl = document.getElementById('nav-' + cid);
     if (navEl) navEl.classList.remove('verified-item');
     scheduleSave();
-    showToast('Marcado como pendiente');
-  } else {
-    if (!confirm('\u00bfMarcar "' + name + '" como revisado?')) return;
-    verifiedState[cid] = { by: currentUser, ts: Date.now() };
-    refreshVerifiedUI();
-    scheduleSave();
-    showToast('\u2705 Cliente marcado como revisado');
+    showToast('Desmarcado');
+    return;
   }
+  if (!confirm('Marcar "' + name + '" como revisado?')) return;
+  verifiedState[cid] = { by: currentUser, ts: Date.now() };
+  var verEl2 = document.getElementById('verified-' + cid);
+  if (verEl2) verEl2.innerHTML = '<span style="color:#059669;font-size:11px;font-weight:700">Revisado por ' + currentUser + '</span>';
+  var btn2 = document.querySelector('#panel-' + cid + ' .btn-verify');
+  if (btn2) { btn2.textContent = 'Revisado'; btn2.classList.add('done'); }
+  var navEl2 = document.getElementById('nav-' + cid);
+  if (navEl2) navEl2.classList.add('verified-item');
+  scheduleSave();
+  showToast('Cliente marcado como revisado');
 };
 
 window.bulkSet = function(cid, status) {
