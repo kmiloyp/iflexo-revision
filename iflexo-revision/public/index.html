@@ -42184,6 +42184,7 @@ let dragSrc        = null;
 
 // Estado de revisión: iid -> {status, obs, editedText, user, ts}
 let reviewState  = {};
+let deletedClients = new Set();
 // Clientes verificados: cid -> {verifiedBy, ts}
 let verifiedState = {};
 // Ítems borrados
@@ -42400,19 +42401,17 @@ window.deleteClientPanel = function(cid) {
   var navItem = document.getElementById('nav-' + cid);
   var panel   = document.getElementById('panel-' + cid);
   var name    = navItem && navItem.querySelector('.nav-name') ? navItem.querySelector('.nav-name').textContent : cid;
-  if (!confirm('Ocultar "' + name + '" de tu vista?')) return;
-  // Guardar en lista de clientes ocultos
-  if (!deletedClients) deletedClients = new Set();
+  if (!confirm('Eliminar "' + name + '" de tu vista?')) return;
   deletedClients.add(cid);
-  scheduleSave();
-  if (panel)   { panel.style.opacity='0'; setTimeout(function(){panel.remove();},220); }
-  if (navItem) { navItem.style.opacity='0'; setTimeout(function(){navItem.remove();},220); }
+  if (panel)   { panel.style.opacity = '0'; setTimeout(function(){ if(panel.parentNode) panel.remove(); }, 220); }
+  if (navItem) { navItem.style.opacity = '0'; setTimeout(function(){ if(navItem.parentNode) navItem.remove(); }, 220); }
   if (currentClient === cid) {
     currentClient = null;
     document.getElementById('welcome').classList.remove('hidden');
   }
   updateProgress();
-  showToast('"' + name + '" ocultado');
+  scheduleSave();
+  showToast('"' + name + '" eliminado de la vista');
 };
 
 window.markClientVerified = async function(cid) {
@@ -42430,15 +42429,8 @@ window.unmarkClientVerified = async function(cid) {
   var name = navItem && navItem.querySelector('.nav-name') ? navItem.querySelector('.nav-name').textContent : cid;
   if (!confirm('Desmarcar "' + name + '"?')) return;
   delete verifiedState[cid];
-  // Guardar en Firebase primero con el estado actualizado
-  try {
-    var db2 = getFirestore(getApp());
-    await setDoc(doc(db2, 'sessions', currentUser), {
-      verifiedState: verifiedState,
-      updatedAt: serverTimestamp()
-    }, {merge: true});
-  } catch(e) { console.error('unmark save:', e); }
   applyVerifiedUI(cid, false);
+  await saveToFirebase();
   showToast('Desmarcado');
 };
 
