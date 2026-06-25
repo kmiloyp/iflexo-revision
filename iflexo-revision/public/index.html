@@ -42655,25 +42655,28 @@ window.showToast = function(msg) {
 
 // ── EXPORT CSV ──────────────────────────────────────────────────
 window.exportCSV = function() {
-  const rows = [['Cliente','Tipo','Celda','Texto','Estado','Observación','Revisado por']];
-  CLIENTS_DATA.forEach((client, ci) => {
-    client.items.forEach((item, ii) => {
-      const iid = 'c' + ci + '-' + ii;
-      const s   = reviewState[iid] || {};
-      if (s.status)
-        rows.push([client.name, item.type, item.coord||'',
-                   (s.editedText||item.text).replace(/\n/g,' '),
-                   s.status, s.obs||'', s.user||'']);
+  var rows = [['Cliente','Tipo','Celda','Texto','Estado','Observacion','Revisado por']];
+  CLIENTS_DATA.forEach(function(client, ci) {
+    client.items.forEach(function(item, ii) {
+      var iid = 'c' + ci + '-' + ii;
+      var s = reviewState[iid] || {};
+      if (s.status) {
+        var txt = (s.editedText || item.text || '').split('\n').join(' ');
+        rows.push([client.name, item.type, item.coord||'', txt, s.status, s.obs||'', s.user||'']);
+      }
     });
   });
-  const csv  = rows.map(r => r.map(v => '"' + String(v).replace(/"/g,'""') + '"').join(','))).join('\n');
-  const blob = new Blob(['﻿' + csv], {type:'text/csv;charset=utf-8'});
-  const a    = document.createElement('a');
-  a.href     = URL.createObjectURL(blob);
+  var csv = rows.map(function(r) {
+    return r.map(function(v) { return '"' + String(v).replace(/"/g, '""') + '"'; }).join(',');
+  }).join('\n');
+  var blob = new Blob(['\uFEFF' + csv], {type: 'text/csv;charset=utf-8'});
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
   a.download = 'iFlexo_Revision_' + new Date().toISOString().slice(0,10) + '.csv';
   a.click();
-  showToast('CSV exportado ✓');
+  showToast('CSV exportado');
 };
+
 
 // Cerrar modal con Escape
 document.addEventListener('keydown', e => {
