@@ -42403,13 +42403,26 @@ window.deleteClientPanel = function(cid) {
 };
 
 window.markClientVerified = async function(cid) {
-  const navItem = document.getElementById('nav-' + cid);
-  const name    = navItem?.querySelector('.nav-name')?.textContent || cid;
-  if (!confirm('¿Marcar "' + name + '" como revisado?')) return;
-  verifiedState[cid] = { by: currentUser, ts: Date.now() };
-  refreshVerifiedUI();
-  scheduleSave();
-  showToast('✅ Cliente marcado como revisado');
+  var navItem = document.getElementById('nav-' + cid);
+  var name = navItem ? (navItem.querySelector('.nav-name') ? navItem.querySelector('.nav-name').textContent : cid) : cid;
+  if (verifiedState[cid]) {
+    if (!confirm('¿Desmarcar "' + name + '" como revisado?')) return;
+    delete verifiedState[cid];
+    var verEl = document.getElementById('verified-' + cid);
+    if (verEl) verEl.innerHTML = '';
+    var btn = document.querySelector('#panel-' + cid + ' .btn-verify');
+    if (btn) { btn.textContent = '\u2705 Marcar revisado'; btn.classList.remove('done'); }
+    var navEl = document.getElementById('nav-' + cid);
+    if (navEl) navEl.classList.remove('verified-item');
+    scheduleSave();
+    showToast('Marcado como pendiente');
+  } else {
+    if (!confirm('\u00bfMarcar "' + name + '" como revisado?')) return;
+    verifiedState[cid] = { by: currentUser, ts: Date.now() };
+    refreshVerifiedUI();
+    scheduleSave();
+    showToast('\u2705 Cliente marcado como revisado');
+  }
 };
 
 window.bulkSet = function(cid, status) {
