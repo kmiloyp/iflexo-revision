@@ -42259,6 +42259,10 @@ async function loadFromFirebase(user) {
       });
       // El estado propio siempre tiene prioridad
       Object.assign(allVerified, verifiedState);
+      // Respetar los desmarcados recientes — no restaurar lo que acaba de desmarcarse
+      recentlyUnmarked.forEach(function(cid) {
+        delete allVerified[cid];
+      });
       verifiedState = allVerified;
       refreshVerifiedUI();
     });
@@ -42430,6 +42434,8 @@ window.unmarkClientVerified = async function(cid) {
   if (!confirm('Desmarcar "' + name + '"?')) return;
 
   // Borrar de mi propia sesión
+  recentlyUnmarked.add(cid);
+  setTimeout(() => recentlyUnmarked.delete(cid), 10000); // limpiar después de 10 seg
   delete verifiedState[cid];
   applyVerifiedUI(cid, false);
   await saveToFirebase();
