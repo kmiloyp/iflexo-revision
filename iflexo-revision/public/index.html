@@ -42156,7 +42156,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f1f5f9;color:#374151;he
 
 <script type="module">
 import { initializeApp }        from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-import { getFirestore, doc, getDoc, getDocs, setDoc, onSnapshot, collection, serverTimestamp }
+import { getFirestore, doc, getDoc, getDocs, setDoc, deleteField, onSnapshot, collection, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -42434,19 +42434,20 @@ window.unmarkClientVerified = async function(cid) {
   applyVerifiedUI(cid, false);
   await saveToFirebase();
 
-  // Borrar también de TODAS las demás sesiones para que no quede "fantasma"
+  // Borrar de TODAS las sesiones usando deleteField para eliminar la key correctamente
   try {
     const snap = await getDocs(collection(db, 'sessions'));
     const updates = [];
     snap.forEach(function(d) {
       const data = d.data();
       if (data.verifiedState && data.verifiedState[cid]) {
-        const newVerified = Object.assign({}, data.verifiedState);
-        delete newVerified[cid];
-        updates.push(setDoc(doc(db, 'sessions', d.id), { verifiedState: newVerified }, { merge: true }));
+        const update = { verifiedState: {} };
+        update.verifiedState[cid] = deleteField();
+        updates.push(setDoc(doc(db, 'sessions', d.id), update, { merge: true }));
       }
     });
     await Promise.all(updates);
+    console.log('Limpieza en todas las sesiones completada');
   } catch(e) {
     console.error('Error limpiando otras sesiones:', e);
   }
