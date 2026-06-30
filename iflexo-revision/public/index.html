@@ -42186,6 +42186,7 @@ let dragSrc        = null;
 let reviewState  = {};
 let deletedClients = new Set();
 // Clientes verificados: cid -> {verifiedBy, ts}
+const recentlyUnmarked = new Set();
 let verifiedState = {};
 // Ítems borrados
 let deletedItems = new Set();
@@ -42259,10 +42260,8 @@ async function loadFromFirebase(user) {
       });
       // El estado propio siempre tiene prioridad
       Object.assign(allVerified, verifiedState);
-      // Respetar los desmarcados recientes — no restaurar lo que acaba de desmarcarse
-      recentlyUnmarked.forEach(function(cid) {
-        delete allVerified[cid];
-      });
+      // No restaurar lo que acaba de desmarcarse
+      recentlyUnmarked.forEach(function(cid) { delete allVerified[cid]; });
       verifiedState = allVerified;
       refreshVerifiedUI();
     });
@@ -42435,12 +42434,12 @@ window.unmarkClientVerified = async function(cid) {
 
   // Borrar de mi propia sesión
   recentlyUnmarked.add(cid);
-  setTimeout(() => recentlyUnmarked.delete(cid), 10000); // limpiar después de 10 seg
+  setTimeout(() => recentlyUnmarked.delete(cid), 10000);
   delete verifiedState[cid];
   applyVerifiedUI(cid, false);
   await saveToFirebase();
 
-  // Borrar de TODAS las sesiones usando deleteField para eliminar la key correctamente
+  // Borrar también de TODAS las demás sesiones para que no quede "fantasma"
   try {
     const snap = await getDocs(collection(db, 'sessions'));
     const updates = [];
@@ -42453,7 +42452,6 @@ window.unmarkClientVerified = async function(cid) {
       }
     });
     await Promise.all(updates);
-    console.log('Limpieza en todas las sesiones completada');
   } catch(e) {
     console.error('Error limpiando otras sesiones:', e);
   }
