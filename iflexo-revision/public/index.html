@@ -42156,7 +42156,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f1f5f9;color:#374151;he
 
 <script type="module">
 import { initializeApp }        from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-import { getFirestore, doc, getDoc, setDoc, onSnapshot, collection, serverTimestamp }
+import { getFirestore, doc, getDoc, getDocs, setDoc, onSnapshot, collection, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -42428,9 +42428,29 @@ window.unmarkClientVerified = async function(cid) {
   var navItem = document.getElementById('nav-' + cid);
   var name = navItem && navItem.querySelector('.nav-name') ? navItem.querySelector('.nav-name').textContent : cid;
   if (!confirm('Desmarcar "' + name + '"?')) return;
+
+  // Borrar de mi propia sesión
   delete verifiedState[cid];
   applyVerifiedUI(cid, false);
   await saveToFirebase();
+
+  // Borrar también de TODAS las demás sesiones para que no quede "fantasma"
+  try {
+    const snap = await getDocs(collection(db, 'sessions'));
+    const updates = [];
+    snap.forEach(function(d) {
+      const data = d.data();
+      if (data.verifiedState && data.verifiedState[cid]) {
+        const newVerified = Object.assign({}, data.verifiedState);
+        delete newVerified[cid];
+        updates.push(setDoc(doc(db, 'sessions', d.id), { verifiedState: newVerified }, { merge: true }));
+      }
+    });
+    await Promise.all(updates);
+  } catch(e) {
+    console.error('Error limpiando otras sesiones:', e);
+  }
+
   showToast('Desmarcado');
 };
 
