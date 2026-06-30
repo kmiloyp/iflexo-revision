@@ -186,8 +186,10 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f1f5f9;color:#374151;he
   <div class="login-box">
     <img src="https://iflexo.co/wp-content/uploads/2025/01/iflexo6-final.png" alt="iFlexo">
     <p class="login-title">Revisión de Fichas Técnicas</p>
-    <p class="login-sub">Escribe tu nombre para comenzar</p>
-    <input class="login-input" id="loginName" placeholder="Ej: Luisa, Juan David..." maxlength="40"
+    <p class="login-sub">Escribe tu nombre y la clave para comenzar</p>
+    <input class="login-input" id="loginName" placeholder="Tu nombre (Ej: Juan, Camilo...)" maxlength="40"
+           onkeydown="if(event.key==='Enter') doLogin()">
+    <input class="login-input" id="loginPass" type="password" placeholder="Clave de acceso"
            onkeydown="if(event.key==='Enter') doLogin()">
     <button class="login-btn" onclick="doLogin()">Entrar →</button>
   </div>
@@ -42188,6 +42190,7 @@ let deletedClients = new Set();
 // Clientes verificados: cid -> {verifiedBy, ts}
 const recentlyUnmarked = new Set();
 let verifiedState = {};
+const GLOBAL_SESSION = 'iflexo-global'; // sesión compartida por todos
 // Ítems borrados
 let deletedItems = new Set();
 // Ítems custom
@@ -42214,7 +42217,7 @@ async function saveToFirebase() {
   if (!currentUser) return;
   setSyncStatus('syncing');
   try {
-    await setDoc(doc(db, 'sessions', currentUser), {
+    await setDoc(doc(db, 'sessions', GLOBAL_SESSION), {
       reviewState:    reviewState,
       verifiedState:  verifiedState,
       deletedItems:   Array.from(deletedItems),
@@ -42239,28 +42242,22 @@ function scheduleSave() {
 async function loadFromFirebase(user) {
   setSyncStatus('syncing');
   try {
-    // Cargar sesión propia
-    const snap = await getDoc(doc(db, 'sessions', user));
+    // Cargar desde sesión global compartida
+    const snap = await getDoc(doc(db, 'sessions', GLOBAL_SESSION));
     if (snap.exists()) {
       const d = snap.data();
-      reviewState   = d.reviewState   || {};
-      verifiedState = d.verifiedState || {};
+      reviewState     = d.reviewState   || {};
+      verifiedState   = d.verifiedState || {};
       deletedItems    = new Set(d.deletedItems || []);
       deletedClients  = new Set(d.deletedClients || []);
       customItems     = d.customItems   || {};
     }
 
-    // También escuchar sesiones de otros para mostrar progreso global
-    onSnapshot(collection(db, 'sessions'), snap => {
-      var allVerified = {};
-      snap.docs.forEach(function(d) {
-        if (d.id !== currentUser) {
-          Object.assign(allVerified, d.data().verifiedState || {});
-        }
-      });
-      // El estado propio siempre tiene prioridad
-      Object.assign(allVerified, verifiedState);
-      // No restaurar lo que acaba de desmarcarse
+    // Escuchar cambios en tiempo real de la sesión global
+    onSnapshot(doc(db, 'sessions', GLOBAL_SESSION), snap => {
+      if (!snap.exists()) return;
+      const allVerified = snap.data().verifiedState || {};
+      // No restaurar lo que acaba de desmarcarse localmente
       recentlyUnmarked.forEach(function(cid) { delete allVerified[cid]; });
       verifiedState = allVerified;
       refreshVerifiedUI();
@@ -42278,7 +42275,15 @@ async function loadFromFirebase(user) {
 // ── LOGIN ───────────────────────────────────────────────────────
 window.doLogin = function() {
   const name = document.getElementById('loginName').value.trim();
+  const pass = document.getElementById('loginPass').value.trim();
   if (!name) { document.getElementById('loginName').focus(); return; }
+  if (pass !== 'iflexovision*') {
+    document.getElementById('loginPass').style.borderColor = '#ef4444';
+    document.getElementById('loginPass').placeholder = 'Clave incorrecta';
+    document.getElementById('loginPass').value = '';
+    document.getElementById('loginPass').focus();
+    return;
+  }
   currentUser = name;
   document.getElementById('loginOverlay').style.display = 'none';
   document.getElementById('userChip').textContent = '👤 ' + name;
@@ -42290,6 +42295,8 @@ window.changeUser = function() {
   saveToFirebase().then(() => {
     currentUser = null;
     document.getElementById('loginName').value = '';
+    document.getElementById('loginPass').value = '';
+    document.getElementById('loginPass').style.borderColor = '';
     document.getElementById('loginOverlay').style.display = 'flex';
   });
 };
@@ -42439,21 +42446,13 @@ window.unmarkClientVerified = async function(cid) {
   applyVerifiedUI(cid, false);
   await saveToFirebase();
 
-  // Borrar también de TODAS las demás sesiones para que no quede "fantasma"
+  // Borrar de la sesión global usando deleteField
   try {
-    const snap = await getDocs(collection(db, 'sessions'));
-    const updates = [];
-    snap.forEach(function(d) {
-      const data = d.data();
-      if (data.verifiedState && data.verifiedState[cid]) {
-        const update = { verifiedState: {} };
-        update.verifiedState[cid] = deleteField();
-        updates.push(setDoc(doc(db, 'sessions', d.id), update, { merge: true }));
-      }
-    });
-    await Promise.all(updates);
+    const update = { verifiedState: {} };
+    update.verifiedState[cid] = deleteField();
+    await setDoc(doc(db, 'sessions', GLOBAL_SESSION), update, { merge: true });
   } catch(e) {
-    console.error('Error limpiando otras sesiones:', e);
+    console.error('Error limpiando sesión global:', e);
   }
 
   showToast('Desmarcado');
