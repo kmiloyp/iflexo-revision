@@ -42246,8 +42246,10 @@ async function loadFromFirebase(user) {
       const d = snap.data();
       reviewState   = d.reviewState   || {};
       verifiedState = d.verifiedState || {};
-      deletedItems    = new Set(d.deletedItems || []);
-      deletedClients  = new Set(d.deletedClients || []);
+      var rawDI = d.deletedItems || [];
+      var rawDC = d.deletedClients || [];
+      deletedItems   = new Set(Array.isArray(rawDI) ? rawDI : Object.values(rawDI));
+      deletedClients = new Set(Array.isArray(rawDC) ? rawDC : Object.values(rawDC));
       customItems     = d.customItems   || {};
     }
 
