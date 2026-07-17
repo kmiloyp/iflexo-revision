@@ -42310,27 +42310,36 @@ function applyStateToUI() {
   });
 
   // Estados de ítems
-  Object.entries(reviewState).forEach(([iid, s]) => {
-    const card = document.getElementById('icard-' + iid);
+  Object.entries(reviewState).forEach(function(entry) {
+    var iid = entry[0];
+    var s   = entry[1];
+    var card = document.getElementById('icard-' + iid);
     if (!card) return;
+    // Restaurar estado visual
     if (s.status) {
       card.className = 'item-card done-' + s.status.toLowerCase();
-      const btn = card.querySelector('.btn-status.' + s.status.toLowerCase());
+      var btn = card.querySelector('.btn-status.' + s.status.toLowerCase());
       if (btn) btn.classList.add('active');
     }
+    // Restaurar observación SIEMPRE (independiente del status)
     if (s.obs) {
-      const inp = card.querySelector('.obs-input');
+      var inp = card.querySelector('.obs-input');
       if (inp) inp.value = s.obs;
     }
+    // Restaurar texto editado SIEMPRE (independiente del status)
     if (s.editedText) {
-      const textEl = card.querySelector('.item-text');
+      var textEl = card.querySelector('.item-text');
       if (textEl) textEl.innerText = s.editedText;
     }
   });
 
-  // Ítems custom
-  Object.entries(customItems).forEach(([cid, items]) => {
-    items.forEach(item => {
+  // Ítems custom — normalizar estructura por si Firebase devuelve objeto indexado
+  Object.entries(customItems).forEach(function(entry) {
+    var cid = entry[0];
+    var items = entry[1];
+    var itemsArr = Array.isArray(items) ? items : Object.values(items);
+    itemsArr.forEach(function(item) {
+      if (!item || !item.id) return;
       if (!document.getElementById(item.id)) insertCustomCard(cid, item);
     });
   });
@@ -42367,13 +42376,21 @@ window.selectClient = function(cid) {
 
 window.setStatus = function(iid, status, btn) {
   reviewState[iid] = reviewState[iid] || {};
-  reviewState[iid].status = status;
-  reviewState[iid].user   = currentUser;
-  reviewState[iid].ts     = Date.now();
-  const card = document.getElementById('icard-' + iid);
+  if (status) {
+    // Guardar estado con valor
+    reviewState[iid].status = status;
+    reviewState[iid].user   = currentUser;
+    reviewState[iid].ts     = Date.now();
+  } else {
+    // Desmarcar: eliminar status para no sobreescribir con vacío en Firebase
+    delete reviewState[iid].status;
+    delete reviewState[iid].user;
+    delete reviewState[iid].ts;
+  }
+  var card = document.getElementById('icard-' + iid);
   if (card) {
     card.className = status ? 'item-card done-' + status.toLowerCase() : 'item-card';
-    card.querySelectorAll('.btn-status').forEach(b => b.classList.remove('active'));
+    card.querySelectorAll('.btn-status').forEach(function(b) { b.classList.remove('active'); });
     if (status && btn) btn.classList.add('active');
   }
   updateProgress();
@@ -42720,12 +42737,15 @@ window.exportCSV = function() {
     var clientName = cid;
     var ci = parseInt(cid.replace('c',''));
     if (!isNaN(ci) && CLIENTS_DATA[ci]) clientName = CLIENTS_DATA[ci].name;
-    items.forEach(function(item) {
+    // Firebase puede devolver array u objeto indexado — normalizar
+    var itemsArr = Array.isArray(items) ? items : Object.values(items);
+    itemsArr.forEach(function(item) {
+      if (!item || !item.id) return;
       var iid = item.id.replace('icard-', '');
       var s = reviewState[iid] || {};
       if (s.status) {
         var txt = (s.editedText || item.text || '').split('\n').join(' ');
-        rows.push([clientName, item.type, 'custom', txt, s.status, s.obs||'', s.user||'']);
+        rows.push([clientName, item.type || 'nota', 'custom', txt, s.status, s.obs||'', s.user||'']);
       }
     });
   });
