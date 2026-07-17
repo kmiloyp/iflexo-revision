@@ -42184,6 +42184,8 @@ let dragSrc        = null;
 
 // Estado de revisión: iid -> {status, obs, editedText, user, ts}
 let reviewState  = {};
+window._getReviewState = function() { return reviewState; };
+window._getCustomItems = function() { return customItems; };
 let deletedClients = new Set();
 // Clientes verificados: cid -> {verifiedBy, ts}
 let verifiedState = {};
